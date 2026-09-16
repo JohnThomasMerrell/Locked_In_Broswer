@@ -5,7 +5,7 @@ const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(STORA
 let history = [], historyIndex = -1, timerSeconds = 25 * 60, timerRunning = false, timerInterval, lockedDomain = "";
 
 const $ = (id) => document.getElementById(id);
-const address = $("address"), frame = $("browser-frame"), welcome = $("welcome"), blocked = $("blocked");
+const address = $("address"), frame = $("browser-frame"), welcome = $("welcome"), blocked = $("blocked"), searchResults = $("search-results");
 
 function saveSettings() { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
 function hostnameFor(value) {
@@ -22,6 +22,43 @@ function normalizeUrl(value) {
   if (!host.includes(".") && !isLocal) throw new Error("Use a full domain like example.com.");
   return url.href;
 }
+function looksLikeSearch(value) {
+  const candidate = value.trim();
+  return candidate.length > 0 && !/^https?:\/\//i.test(candidate) && (/\s/.test(candidate) || !candidate.includes("."));
+}
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+}
+async function searchPages(query) {
+  const cleanQuery = query.trim();
+  welcome.hidden = true; frame.hidden = true; blocked.hidden = true; searchResults.hidden = false;
+  $("search-title").textContent = `Search results for “${cleanQuery}”`;
+  $("search-status").textContent = "Searching Wikipedia’s focused knowledge index…";
+  $("search-result-list").innerHTML = "";
+  $("page-status").textContent = `Searching for ${cleanQuery}`;
+  try {
+    const endpoint = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}&format=json&origin=*&utf8=1&srlimit=8`;
+    const response = await fetch(endpoint);
+    if (!response.ok) throw new Error("Search service returned an error.");
+    const data = await response.json();
+    const results = data.query?.search || [];
+    $("search-status").textContent = `${results.length} result${results.length === 1 ? "" : "s"} · Select one page to open it`;
+    $("search-result-list").innerHTML = results.length ? results.map((result) => {
+      const title = result.title;
+      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
+      const excerpt = result.snippet.replace(/<[^>]+>/g, "");
+      return `<a class="search-result" href="${url}" data-url="${url}"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(excerpt)}</p><span class="search-result-url">en.wikipedia.org</span></a>`;
+    }).join("") : `<div class="search-empty">No pages matched that search. Try a different phrase.</div>`;
+    $("search-result-list").querySelectorAll(".search-result").forEach((result) => result.addEventListener("click", (event) => {
+      event.preventDefault();
+      navigate(result.dataset.url);
+    }));
+  } catch (error) {
+    $("search-status").textContent = "Search is unavailable right now.";
+    $("search-result-list").innerHTML = `<div class="search-empty">${escapeHtml(error.message)} Try again in a moment.</div>`;
+    $("page-status").textContent = "Search failed.";
+  }
+}
 function isBlocked(url) {
   if (!settings.strict) return false;
   const host = hostnameFor(url);
@@ -34,7 +71,7 @@ function evaluateNavigation(url) {
   return { allowed: true, reason: "", host };
 }
 function showBlocked(url, reason) {
-  welcome.hidden = true; frame.hidden = true; blocked.hidden = false;
+  welcome.hidden = true; frame.hidden = true; searchResults.hidden = true; blocked.hidden = false;
   const host = hostnameFor(url);
   $("blocked-copy").textContent = reason === "locked-domain"
     ? `${host} is outside your current focus target (${lockedDomain}). Clear the lock only if you are intentionally changing tasks.`
@@ -47,6 +84,18 @@ function renderLockStatus() {
     : "Focus site: not locked yet";
 }
 function navigate(rawUrl, addHistory = true) {
+  if (rawUrl.startsWith("search:")) {
+    const query = rawUrl.slice("search:".length);
+    address.value = query;
+    searchPages(query);
+    return;
+  }
+  if (looksLikeSearch(rawUrl)) {
+    if (addHistory) { history = history.slice(0, historyIndex + 1); history.push(`search:${rawUrl.trim()}`); historyIndex++; }
+    address.value = rawUrl.trim();
+    searchPages(rawUrl);
+    return;
+  }
   let url;
   try { url = normalizeUrl(rawUrl); } catch (error) { $("page-status").textContent = error.message; return; }
   const evaluation = evaluateNavigation(url);
@@ -55,7 +104,7 @@ function navigate(rawUrl, addHistory = true) {
   if (!evaluation.allowed) { showBlocked(url, evaluation.reason); return; }
   if (settings.strict && !lockedDomain) lockedDomain = evaluation.host;
   renderLockStatus();
-  welcome.hidden = true; blocked.hidden = true; frame.hidden = false; frame.src = url;
+  welcome.hidden = true; blocked.hidden = true; searchResults.hidden = true; frame.hidden = false; frame.src = url;
   $("page-status").textContent = `Focused on ${evaluation.host}`;
 }
 function renderRules() {
@@ -80,7 +129,7 @@ $("address-form").addEventListener("submit", (event) => { event.preventDefault()
 $("back").addEventListener("click", () => { if (historyIndex > 0) { historyIndex--; navigate(history[historyIndex], false); } });
 $("forward").addEventListener("click", () => { if (historyIndex < history.length - 1) { historyIndex++; navigate(history[historyIndex], false); } });
 $("reload").addEventListener("click", () => { if (!frame.hidden) frame.contentWindow.location.reload(); });
-$("return-home").addEventListener("click", () => { blocked.hidden = true; welcome.hidden = false; $("page-status").textContent = "Ready for your next deep-work session."; address.value = ""; });
+$("return-home").addEventListener("click", () => { blocked.hidden = true; searchResults.hidden = true; welcome.hidden = false; $("page-status").textContent = "Ready for your next deep-work session."; address.value = ""; });
 $("timer-toggle").addEventListener("click", () => setTimerRunning(!timerRunning));
 $("timer-reset").addEventListener("click", () => { timerSeconds = 25 * 60; setTimerRunning(false); });
 $("strict-toggle").addEventListener("click", () => {
@@ -100,6 +149,7 @@ $("clear-lock").addEventListener("click", () => {
   lockedDomain = "";
   renderLockStatus();
   blocked.hidden = true;
+  searchResults.hidden = true;
   frame.hidden = true;
   welcome.hidden = false;
   $("page-status").textContent = "Focus site lock cleared. Choose your next single task.";
