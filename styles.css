@@ -66,6 +66,16 @@ button { cursor: pointer; }
 .quick-link strong, .quick-link small { display: block; }.quick-link strong { font-size: 10px; }.quick-link small { margin-top: 2px; color: var(--muted); font-size: 9px; }
 .tip { margin-top: 34px; color: #718079; font-size: 10px; }.tip span { color: var(--green); margin-right: 4px; }
 #browser-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+.search-results { height: 100%; overflow: auto; padding: 54px clamp(24px, 8vw, 110px); background: #101715; }
+.search-heading { max-width: 760px; margin: 0 auto 22px; }
+.search-heading h2 { margin: 10px 0 5px; color: var(--text); font-size: 30px; letter-spacing: -1px; }
+.search-result-list { display: grid; gap: 10px; max-width: 760px; margin: auto; }
+.search-result { display: block; padding: 16px 18px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: #151e1b; text-decoration: none; }
+.search-result:hover { border-color: #66814f; background: #1a251f; transform: translateY(-1px); }
+.search-result h3 { margin: 0 0 6px; color: var(--green); font-size: 14px; }
+.search-result p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.search-result-url { display: block; margin-top: 9px; color: #738d79; font: 10px "DM Mono", monospace; }
+.search-empty { padding: 30px 0; color: var(--muted); text-align: center; }
 .blocked { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; }
 .blocked-icon { display: grid; place-items: center; width: 54px; height: 54px; margin-bottom: 22px; border: 1px solid #653e39; border-radius: 50%; color: var(--red); font-size: 24px; }
 .blocked h2 { margin: 12px 0 8px; font-size: 29px; letter-spacing: -1px; }.blocked p:not(.eyebrow) { max-width: 330px; margin: 0 0 24px; color: var(--muted); line-height: 1.6; font-size: 12px; }

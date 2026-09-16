@@ -57,7 +57,7 @@
             <button id="reload" class="toolbar-button" title="Reload" aria-label="Reload">↻</button>
             <form id="address-form" class="address-form">
               <span class="address-icon">⌕</span>
-              <input id="address" type="text" autocomplete="off" spellcheck="false" placeholder="Enter a website to stay locked in…" aria-label="Website address" />
+              <input id="address" type="text" autocomplete="off" spellcheck="false" placeholder="Enter a URL or search for a page…" aria-label="Website address or search" />
               <button type="submit" class="go-button">Go</button>
             </form>
           </div>
@@ -76,6 +76,14 @@
               <div class="tip"><span>✦</span> Tip: add your most-used work domains to the allowlist.</div>
             </div>
             <iframe id="browser-frame" title="Focused web page" hidden sandbox="allow-forms allow-modals allow-presentation allow-same-origin allow-scripts"></iframe>
+            <div id="search-results" class="search-results" hidden>
+              <div class="search-heading">
+                <p class="eyebrow">focused search</p>
+                <h2 id="search-title"></h2>
+                <p id="search-status" class="muted"></p>
+              </div>
+              <div id="search-result-list" class="search-result-list"></div>
+            </div>
             <div id="blocked" class="blocked" hidden>
               <div class="blocked-icon">✕</div>
               <p class="eyebrow">distraction blocked</p>
