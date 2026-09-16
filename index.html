@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0f0e" />
+    <title>Locked In — Focus browser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Focus controls">
+        <a class="brand" href="#" aria-label="Locked In home">
+          <span class="brand-mark">↗</span>
+          <span>locked<span class="brand-accent">in</span></span>
+        </a>
+
+        <section class="focus-card">
+          <div class="eyebrow"><span class="pulse"></span> focus session</div>
+          <div id="timer" class="timer">25:00</div>
+          <p id="timer-status" class="muted">Ready when you are.</p>
+          <div class="timer-actions">
+            <button id="timer-toggle" class="button button-primary">Start focus</button>
+            <button id="timer-reset" class="icon-button" title="Reset timer" aria-label="Reset timer">↺</button>
+          </div>
+        </section>
+
+        <nav class="side-nav" aria-label="Browser settings">
+          <button class="nav-item active" data-panel="browser-panel"><span>⌂</span> Focus browser</button>
+          <button class="nav-item" data-panel="rules-panel"><span>◈</span> Rules & allowlist</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="status-row"><span class="status-dot"></span><span>Protection is on</span></div>
+          <p id="lock-status" class="lock-status">Focus site: not locked yet</p>
+          <button id="clear-lock" class="clear-lock" type="button">Change focus site</button>
+          <p>One page. One task.<br />Less noise, more progress.</p>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="session-label"><span class="lock">⌕</span> single-page mode</div>
+          <button id="strict-toggle" class="strict-toggle" aria-pressed="true">
+            <span class="toggle"></span> Strict mode
+          </button>
+        </header>
+
+        <section id="browser-panel" class="panel active-panel">
+          <div class="browser-toolbar">
+            <button id="back" class="toolbar-button" title="Go back" aria-label="Go back">‹</button>
+            <button id="forward" class="toolbar-button" title="Go forward" aria-label="Go forward">›</button>
+            <button id="reload" class="toolbar-button" title="Reload" aria-label="Reload">↻</button>
+            <form id="address-form" class="address-form">
+              <span class="address-icon">⌕</span>
+              <input id="address" type="text" autocomplete="off" spellcheck="false" placeholder="Enter a website to stay locked in…" aria-label="Website address" />
+              <button type="submit" class="go-button">Go</button>
+            </form>
+          </div>
+
+          <div class="browser-stage">
+            <div id="welcome" class="welcome">
+              <div class="welcome-orbit"><span>↗</span></div>
+              <p class="eyebrow">your quiet corner of the web</p>
+              <h1>What will you<br /><em>finish</em> today?</h1>
+              <p class="welcome-copy">Type a URL above. Locked In keeps you on one page and out of the rabbit holes.</p>
+              <div class="quick-links">
+                <button class="quick-link" data-url="https://docs.google.com"><span class="quick-icon docs">D</span><span><strong>Google Docs</strong><small>write & create</small></span></button>
+                <button class="quick-link" data-url="https://github.com"><span class="quick-icon git">⌘</span><span><strong>GitHub</strong><small>build & ship</small></span></button>
+                <button class="quick-link" data-url="https://linear.app"><span class="quick-icon linear">↗</span><span><strong>Linear</strong><small>plan & execute</small></span></button>
+              </div>
+              <div class="tip"><span>✦</span> Tip: add your most-used work domains to the allowlist.</div>
+            </div>
+            <iframe id="browser-frame" title="Focused web page" hidden sandbox="allow-forms allow-modals allow-presentation allow-same-origin allow-scripts"></iframe>
+            <div id="blocked" class="blocked" hidden>
+              <div class="blocked-icon">✕</div>
+              <p class="eyebrow">distraction blocked</p>
+              <h2>That page can wait.</h2>
+              <p id="blocked-copy">Strict mode keeps your attention on the work that matters.</p>
+              <button id="return-home" class="button button-primary">Back to focus</button>
+            </div>
+          </div>
+          <footer class="browser-footer"><span id="page-status">Ready for your next deep-work session.</span><span><kbd>⌘</kbd> + <kbd>L</kbd> to navigate</span></footer>
+        </section>
+
+        <section id="rules-panel" class="panel rules-panel" hidden>
+          <div class="section-heading"><div><p class="eyebrow">your boundaries</p><h2>Rules & allowlist</h2></div><span class="rule-count">strict by default</span></div>
+          <div class="rules-grid">
+            <article class="rule-card">
+              <div class="rule-card-heading"><span class="rule-icon blocked-rule">✕</span><div><h3>Blocked by default</h3><p>These sites are always distractions.</p></div></div>
+              <div id="blocked-list" class="chip-list"></div>
+            </article>
+            <article class="rule-card">
+              <div class="rule-card-heading"><span class="rule-icon allowed-rule">✓</span><div><h3>Your allowlist</h3><p>Work domains you want one-click access to.</p></div></div>
+              <form id="allowlist-form" class="allowlist-form"><input id="domain-input" placeholder="e.g. notion.so" aria-label="Domain to allow" /><button class="button button-primary" type="submit">Add domain</button></form>
+              <div id="allowlist" class="chip-list"></div>
+            </article>
+          </div>
+          <div class="note"><span>⌁</span><p><strong>Strict mode is local to this browser.</strong> Your rules stay on this device and are never sent anywhere.</p></div>
+        </section>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
