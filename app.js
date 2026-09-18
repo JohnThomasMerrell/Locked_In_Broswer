@@ -176,7 +176,11 @@ function setTimerRunning(running) {
 $("address-form").addEventListener("submit", (event) => { event.preventDefault(); navigate(address.value); });
 $("back").addEventListener("click", () => { if (historyIndex > 0) { historyIndex--; navigate(history[historyIndex], false); } });
 $("forward").addEventListener("click", () => { if (historyIndex < history.length - 1) { historyIndex++; navigate(history[historyIndex], false); } });
-$("reload").addEventListener("click", () => { if (!frame.hidden) frame.contentWindow.location.reload(); });
+$("reload").addEventListener("click", () => {
+  if (frame.hidden) return;
+  if (typeof frame.reload === "function") frame.reload();
+  else frame.contentWindow.location.reload();
+});
 $("return-home").addEventListener("click", () => { blocked.hidden = true; searchResults.hidden = true; welcome.hidden = false; $("page-status").textContent = "Ready for your next deep-work session."; address.value = ""; });
 $("timer-toggle").addEventListener("click", () => setTimerRunning(!timerRunning));
 $("timer-reset").addEventListener("click", () => { timerSeconds = 25 * 60; setTimerRunning(false); });
@@ -227,7 +231,7 @@ $("clear-lock").addEventListener("click", () => {
   welcome.hidden = false;
   $("page-status").textContent = "Focus site lock cleared. Choose your next single task.";
 });
-frame.addEventListener("load", () => {
+frame.addEventListener("load-commit", () => {
   if (!settings.strict || !lockedDomain || frame.hidden) return;
   const currentHost = hostnameFor(frame.src);
   if (currentHost && !domainMatches(currentHost, lockedDomain)) showBlocked(frame.src, "locked-domain");
