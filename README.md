@@ -38,3 +38,13 @@ Installers and portable archives are written to `dist/`. To run the desktop shel
 ```bash
 npm start
 ```
+
+If npm reports that Electron's install script is not approved, run:
+
+```bash
+npm run approve-electron
+npm install
+npm start
+```
+
+Electron downloads its platform runtime during installation. Without that runtime, `npm start` will either open the latest packaged app (if `dist/` exists) or print the repair command above.

@@ -8,7 +8,8 @@
   },
   "main": "desktop/main.cjs",
   "scripts": {
-    "start": "electron .",
+    "start": "node desktop/start.cjs",
+    "approve-electron": "npm install-scripts approve electron",
     "dist": "electron-builder",
     "check": "node --check app.js && node --check desktop/main.cjs"
   },
