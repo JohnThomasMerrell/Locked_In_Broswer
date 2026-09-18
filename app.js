@@ -1,13 +1,26 @@
 const BLOCKED_DOMAINS = ["facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "netflix.com", "reddit.com", "twitch.tv", "news.ycombinator.com"];
 const STORAGE_KEY = "locked-in-settings";
+const TODO_STORAGE_KEY = "locked-in-todos";
 const DEFAULT_SETTINGS = { strict: true, allowlist: ["docs.google.com", "github.com", "linear.app"] };
 const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
+let todos = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY) || "[]");
 let history = [], historyIndex = -1, timerSeconds = 25 * 60, timerRunning = false, timerInterval, lockedDomain = "";
 
 const $ = (id) => document.getElementById(id);
 const address = $("address"), frame = $("browser-frame"), welcome = $("welcome"), blocked = $("blocked"), searchResults = $("search-results");
 
 function saveSettings() { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
+function saveTodos() { localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos)); }
+function renderTodos() {
+  const remaining = todos.filter((todo) => !todo.done).length;
+  $("todo-count").textContent = `${remaining} left`;
+  $("todo-list").innerHTML = todos.length ? todos.map((todo) => `
+    <li class="todo-item ${todo.done ? "done" : ""}">
+      <input type="checkbox" data-todo-id="${todo.id}" ${todo.done ? "checked" : ""} aria-label="Complete ${escapeHtml(todo.text)}" />
+      <span>${escapeHtml(todo.text)}</span>
+      <button class="todo-remove" data-remove-todo="${todo.id}" aria-label="Remove ${escapeHtml(todo.text)}">×</button>
+    </li>`).join("") : `<li class="todo-item"><span>Nothing here yet. Keep it gentle.</span></li>`;
+}
 function hostnameFor(value) {
   try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
 }
@@ -29,34 +42,69 @@ function looksLikeSearch(value) {
 function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
+function flattenDuckDuckGoTopics(topics, results = []) {
+  topics.forEach((topic) => {
+    if (topic.Topics) flattenDuckDuckGoTopics(topic.Topics, results);
+    else if (topic.FirstURL && topic.Text) results.push({ title: topic.Text.split(" - ")[0], excerpt: topic.Text, url: topic.FirstURL, source: "DuckDuckGo" });
+  });
+  return results;
+}
+function rankSearchResults(results, query) {
+  const normalizedQuery = String(query || "").toLowerCase();
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  return results.map((result) => {
+    const title = String(result.title || "Untitled result").toLowerCase();
+    const excerpt = String(result.excerpt || "");
+    const text = `${title} ${excerpt.toLowerCase()}`;
+    const exactTitle = title === normalizedQuery ? 100 : 0;
+    const titleMatches = terms.reduce((score, term) => score + (title.includes(term) ? 15 : 0), 0);
+    const bodyMatches = terms.reduce((score, term) => score + (text.includes(term) ? 2 : 0), 0);
+    return { ...result, score: exactTitle + titleMatches + bodyMatches };
+  }).sort((a, b) => b.score - a.score);
+}
+function renderSearchFallback(query, message) {
+  const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+  $("search-status").textContent = message;
+  $("search-result-list").innerHTML = `
+    <a class="search-result" href="${url}" data-url="${url}">
+      <h3>Continue on DuckDuckGo</h3>
+      <p>Your search is ready. Open DuckDuckGo to see the full web results.</p>
+      <span class="search-result-url">duckduckgo.com</span>
+    </a>`;
+  $("search-result-list").querySelector(".search-result").addEventListener("click", (event) => {
+    event.preventDefault();
+    navigate(url);
+  });
+}
 async function searchPages(query) {
   const cleanQuery = query.trim();
   welcome.hidden = true; frame.hidden = true; blocked.hidden = true; searchResults.hidden = false;
   $("search-title").textContent = `Search results for “${cleanQuery}”`;
-  $("search-status").textContent = "Searching Wikipedia’s focused knowledge index…";
+  $("search-status").textContent = "Searching DuckDuckGo…";
   $("search-result-list").innerHTML = "";
   $("page-status").textContent = `Searching for ${cleanQuery}`;
   try {
-    const endpoint = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}&format=json&origin=*&utf8=1&srlimit=8`;
-    const response = await fetch(endpoint);
-    if (!response.ok) throw new Error("Search service returned an error.");
-    const data = await response.json();
-    const results = data.query?.search || [];
-    $("search-status").textContent = `${results.length} result${results.length === 1 ? "" : "s"} · Select one page to open it`;
+    const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}&format=json&no_html=1&skip_disambig=1`);
+    if (!response.ok) throw new Error("DuckDuckGo search returned an error.");
+    const webData = await response.json();
+    const webResults = flattenDuckDuckGoTopics(webData.RelatedTopics || []);
+    const seen = new Set();
+    const results = rankSearchResults(webResults, cleanQuery).filter((result) => {
+      if (seen.has(result.url)) return false;
+      seen.add(result.url);
+      return true;
+    }).slice(0, 10);
+    $("search-status").textContent = `${results.length} DuckDuckGo result${results.length === 1 ? "" : "s"} · Select one page to open it`;
     $("search-result-list").innerHTML = results.length ? results.map((result) => {
-      const title = result.title;
-      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
-      const excerpt = result.snippet.replace(/<[^>]+>/g, "");
-      return `<a class="search-result" href="${url}" data-url="${url}"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(excerpt)}</p><span class="search-result-url">en.wikipedia.org</span></a>`;
+      return `<a class="search-result" href="${result.url}" data-url="${result.url}"><h3>${escapeHtml(result.title)}</h3><p>${escapeHtml(result.excerpt)}</p><span class="search-result-url">${escapeHtml(new URL(result.url).hostname)}</span></a>`;
     }).join("") : `<div class="search-empty">No pages matched that search. Try a different phrase.</div>`;
     $("search-result-list").querySelectorAll(".search-result").forEach((result) => result.addEventListener("click", (event) => {
       event.preventDefault();
       navigate(result.dataset.url);
     }));
   } catch (error) {
-    $("search-status").textContent = "Search is unavailable right now.";
-    $("search-result-list").innerHTML = `<div class="search-empty">${escapeHtml(error.message)} Try again in a moment.</div>`;
-    $("page-status").textContent = "Search failed.";
+    renderSearchFallback(cleanQuery, "DuckDuckGo’s web results are ready");
+    $("page-status").textContent = "Opening DuckDuckGo fallback.";
   }
 }
 function isBlocked(url) {
@@ -128,7 +176,11 @@ function setTimerRunning(running) {
 $("address-form").addEventListener("submit", (event) => { event.preventDefault(); navigate(address.value); });
 $("back").addEventListener("click", () => { if (historyIndex > 0) { historyIndex--; navigate(history[historyIndex], false); } });
 $("forward").addEventListener("click", () => { if (historyIndex < history.length - 1) { historyIndex++; navigate(history[historyIndex], false); } });
-$("reload").addEventListener("click", () => { if (!frame.hidden) frame.contentWindow.location.reload(); });
+$("reload").addEventListener("click", () => {
+  if (frame.hidden) return;
+  if (typeof frame.reload === "function") frame.reload();
+  else frame.contentWindow.location.reload();
+});
 $("return-home").addEventListener("click", () => { blocked.hidden = true; searchResults.hidden = true; welcome.hidden = false; $("page-status").textContent = "Ready for your next deep-work session."; address.value = ""; });
 $("timer-toggle").addEventListener("click", () => setTimerRunning(!timerRunning));
 $("timer-reset").addEventListener("click", () => { timerSeconds = 25 * 60; setTimerRunning(false); });
@@ -145,6 +197,31 @@ $("allowlist-form").addEventListener("submit", (event) => {
   if (domain && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain) && !settings.allowlist.includes(domain)) { settings.allowlist.push(domain); saveSettings(); renderRules(); input.value = ""; }
 });
 $("allowlist").addEventListener("click", (event) => { const domain = event.target.dataset.domain; if (domain) { settings.allowlist = settings.allowlist.filter((item) => item !== domain); saveSettings(); renderRules(); } });
+$("todo-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = $("todo-input");
+  const text = input.value.trim();
+  if (!text) return;
+  todos.unshift({ id: Date.now(), text, done: false });
+  input.value = "";
+  saveTodos();
+  renderTodos();
+});
+$("todo-list").addEventListener("change", (event) => {
+  const id = Number(event.target.dataset.todoId);
+  if (!id) return;
+  const todo = todos.find((item) => item.id === id);
+  if (todo) todo.done = event.target.checked;
+  saveTodos();
+  renderTodos();
+});
+$("todo-list").addEventListener("click", (event) => {
+  const id = Number(event.target.dataset.removeTodo);
+  if (!id) return;
+  todos = todos.filter((item) => item.id !== id);
+  saveTodos();
+  renderTodos();
+});
 $("clear-lock").addEventListener("click", () => {
   lockedDomain = "";
   renderLockStatus();
@@ -154,7 +231,7 @@ $("clear-lock").addEventListener("click", () => {
   welcome.hidden = false;
   $("page-status").textContent = "Focus site lock cleared. Choose your next single task.";
 });
-frame.addEventListener("load", () => {
+frame.addEventListener("load-commit", () => {
   if (!settings.strict || !lockedDomain || frame.hidden) return;
   const currentHost = hostnameFor(frame.src);
   if (currentHost && !domainMatches(currentHost, lockedDomain)) showBlocked(frame.src, "locked-domain");
@@ -167,4 +244,4 @@ document.querySelectorAll(".nav-item").forEach((button) => button.addEventListen
 document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") { event.preventDefault(); address.focus(); address.select(); } });
 
 $("strict-toggle").setAttribute("aria-pressed", settings.strict);
-renderRules(); renderTimer(); renderLockStatus();
+renderRules(); renderTimer(); renderLockStatus(); renderTodos();

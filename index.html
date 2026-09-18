@@ -28,6 +28,21 @@
           </div>
         </section>
 
+        <section class="todo-card" aria-labelledby="todo-title">
+          <div class="todo-heading">
+            <div>
+              <p class="eyebrow">tiny next steps</p>
+              <h2 id="todo-title">Today’s list</h2>
+            </div>
+            <span id="todo-count" class="todo-count">0 left</span>
+          </div>
+          <form id="todo-form" class="todo-form">
+            <input id="todo-input" type="text" maxlength="80" placeholder="Add one small task…" aria-label="Add a task" />
+            <button type="submit" aria-label="Add task">+</button>
+          </form>
+          <ul id="todo-list" class="todo-list"></ul>
+        </section>
+
         <nav class="side-nav" aria-label="Browser settings">
           <button class="nav-item active" data-panel="browser-panel"><span>⌂</span> Focus browser</button>
           <button class="nav-item" data-panel="rules-panel"><span>◈</span> Rules & allowlist</button>
@@ -75,7 +90,7 @@
               </div>
               <div class="tip"><span>✦</span> Tip: add your most-used work domains to the allowlist.</div>
             </div>
-            <iframe id="browser-frame" title="Focused web page" hidden sandbox="allow-forms allow-modals allow-presentation allow-same-origin allow-scripts"></iframe>
+            <webview id="browser-frame" title="Focused web page" hidden></webview>
             <div id="search-results" class="search-results" hidden>
               <div class="search-heading">
                 <p class="eyebrow">focused search</p>
