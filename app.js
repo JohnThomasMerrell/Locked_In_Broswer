@@ -50,15 +50,31 @@ function flattenDuckDuckGoTopics(topics, results = []) {
   return results;
 }
 function rankSearchResults(results, query) {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const normalizedQuery = String(query || "").toLowerCase();
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
   return results.map((result) => {
-    const title = result.title.toLowerCase();
-    const text = `${title} ${result.excerpt.toLowerCase()}`;
-    const exactTitle = title === query.toLowerCase() ? 100 : 0;
+    const title = String(result.title || "Untitled result").toLowerCase();
+    const excerpt = String(result.excerpt || "");
+    const text = `${title} ${excerpt.toLowerCase()}`;
+    const exactTitle = title === normalizedQuery ? 100 : 0;
     const titleMatches = terms.reduce((score, term) => score + (title.includes(term) ? 15 : 0), 0);
     const bodyMatches = terms.reduce((score, term) => score + (text.includes(term) ? 2 : 0), 0);
     return { ...result, score: exactTitle + titleMatches + bodyMatches };
   }).sort((a, b) => b.score - a.score);
+}
+function renderSearchFallback(query, message) {
+  const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+  $("search-status").textContent = message;
+  $("search-result-list").innerHTML = `
+    <a class="search-result" href="${url}" data-url="${url}">
+      <h3>Continue on DuckDuckGo</h3>
+      <p>Your search is ready. Open DuckDuckGo to see the full web results.</p>
+      <span class="search-result-url">duckduckgo.com</span>
+    </a>`;
+  $("search-result-list").querySelector(".search-result").addEventListener("click", (event) => {
+    event.preventDefault();
+    navigate(url);
+  });
 }
 async function searchPages(query) {
   const cleanQuery = query.trim();
@@ -73,7 +89,7 @@ async function searchPages(query) {
     const webData = await response.json();
     const webResults = flattenDuckDuckGoTopics(webData.RelatedTopics || []);
     const seen = new Set();
-    const results = rankSearchResults(webResults).filter((result) => {
+    const results = rankSearchResults(webResults, cleanQuery).filter((result) => {
       if (seen.has(result.url)) return false;
       seen.add(result.url);
       return true;
@@ -87,9 +103,8 @@ async function searchPages(query) {
       navigate(result.dataset.url);
     }));
   } catch (error) {
-    $("search-status").textContent = "Search is unavailable right now.";
-    $("search-result-list").innerHTML = `<div class="search-empty">${escapeHtml(error.message)} Try again in a moment.</div>`;
-    $("page-status").textContent = "Search failed.";
+    renderSearchFallback(cleanQuery, "DuckDuckGo’s web results are ready");
+    $("page-status").textContent = "Opening DuckDuckGo fallback.";
   }
 }
 function isBlocked(url) {
