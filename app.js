@@ -42,25 +42,45 @@ function looksLikeSearch(value) {
 function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
+function flattenDuckDuckGoTopics(topics, results = []) {
+  topics.forEach((topic) => {
+    if (topic.Topics) flattenDuckDuckGoTopics(topic.Topics, results);
+    else if (topic.FirstURL && topic.Text) results.push({ title: topic.Text.split(" - ")[0], excerpt: topic.Text, url: topic.FirstURL, source: "DuckDuckGo" });
+  });
+  return results;
+}
+function rankSearchResults(results, query) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return results.map((result) => {
+    const title = result.title.toLowerCase();
+    const text = `${title} ${result.excerpt.toLowerCase()}`;
+    const exactTitle = title === query.toLowerCase() ? 100 : 0;
+    const titleMatches = terms.reduce((score, term) => score + (title.includes(term) ? 15 : 0), 0);
+    const bodyMatches = terms.reduce((score, term) => score + (text.includes(term) ? 2 : 0), 0);
+    return { ...result, score: exactTitle + titleMatches + bodyMatches };
+  }).sort((a, b) => b.score - a.score);
+}
 async function searchPages(query) {
   const cleanQuery = query.trim();
   welcome.hidden = true; frame.hidden = true; blocked.hidden = true; searchResults.hidden = false;
   $("search-title").textContent = `Search results for “${cleanQuery}”`;
-  $("search-status").textContent = "Searching Wikipedia’s focused knowledge index…";
+  $("search-status").textContent = "Searching DuckDuckGo…";
   $("search-result-list").innerHTML = "";
   $("page-status").textContent = `Searching for ${cleanQuery}`;
   try {
-    const endpoint = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}&format=json&origin=*&utf8=1&srlimit=8`;
-    const response = await fetch(endpoint);
-    if (!response.ok) throw new Error("Search service returned an error.");
-    const data = await response.json();
-    const results = data.query?.search || [];
-    $("search-status").textContent = `${results.length} result${results.length === 1 ? "" : "s"} · Select one page to open it`;
+    const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}&format=json&no_html=1&skip_disambig=1`);
+    if (!response.ok) throw new Error("DuckDuckGo search returned an error.");
+    const webData = await response.json();
+    const webResults = flattenDuckDuckGoTopics(webData.RelatedTopics || []);
+    const seen = new Set();
+    const results = rankSearchResults(webResults).filter((result) => {
+      if (seen.has(result.url)) return false;
+      seen.add(result.url);
+      return true;
+    }).slice(0, 10);
+    $("search-status").textContent = `${results.length} DuckDuckGo result${results.length === 1 ? "" : "s"} · Select one page to open it`;
     $("search-result-list").innerHTML = results.length ? results.map((result) => {
-      const title = result.title;
-      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
-      const excerpt = result.snippet.replace(/<[^>]+>/g, "");
-      return `<a class="search-result" href="${url}" data-url="${url}"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(excerpt)}</p><span class="search-result-url">en.wikipedia.org</span></a>`;
+      return `<a class="search-result" href="${result.url}" data-url="${result.url}"><h3>${escapeHtml(result.title)}</h3><p>${escapeHtml(result.excerpt)}</p><span class="search-result-url">${escapeHtml(new URL(result.url).hostname)}</span></a>`;
     }).join("") : `<div class="search-empty">No pages matched that search. Try a different phrase.</div>`;
     $("search-result-list").querySelectorAll(".search-result").forEach((result) => result.addEventListener("click", (event) => {
       event.preventDefault();
