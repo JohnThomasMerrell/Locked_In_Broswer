@@ -1,0 +1,41 @@
+{
+  "name": "locked-in-browser",
+  "version": "1.0.0",
+  "description": "A cozy, single-page focus browser.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JohnThomasMerrell/Locked_In_Broswer.git"
+  },
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "check": "node --check app.js && node --check desktop/main.cjs"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.lockedin.focus",
+    "productName": "Locked In",
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "desktop/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office"
+    },
+    "publish": []
+  }
+}

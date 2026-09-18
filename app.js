@@ -1,13 +1,26 @@
 const BLOCKED_DOMAINS = ["facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "netflix.com", "reddit.com", "twitch.tv", "news.ycombinator.com"];
 const STORAGE_KEY = "locked-in-settings";
+const TODO_STORAGE_KEY = "locked-in-todos";
 const DEFAULT_SETTINGS = { strict: true, allowlist: ["docs.google.com", "github.com", "linear.app"] };
 const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
+let todos = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY) || "[]");
 let history = [], historyIndex = -1, timerSeconds = 25 * 60, timerRunning = false, timerInterval, lockedDomain = "";
 
 const $ = (id) => document.getElementById(id);
 const address = $("address"), frame = $("browser-frame"), welcome = $("welcome"), blocked = $("blocked"), searchResults = $("search-results");
 
 function saveSettings() { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
+function saveTodos() { localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos)); }
+function renderTodos() {
+  const remaining = todos.filter((todo) => !todo.done).length;
+  $("todo-count").textContent = `${remaining} left`;
+  $("todo-list").innerHTML = todos.length ? todos.map((todo) => `
+    <li class="todo-item ${todo.done ? "done" : ""}">
+      <input type="checkbox" data-todo-id="${todo.id}" ${todo.done ? "checked" : ""} aria-label="Complete ${escapeHtml(todo.text)}" />
+      <span>${escapeHtml(todo.text)}</span>
+      <button class="todo-remove" data-remove-todo="${todo.id}" aria-label="Remove ${escapeHtml(todo.text)}">×</button>
+    </li>`).join("") : `<li class="todo-item"><span>Nothing here yet. Keep it gentle.</span></li>`;
+}
 function hostnameFor(value) {
   try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
 }
@@ -145,6 +158,31 @@ $("allowlist-form").addEventListener("submit", (event) => {
   if (domain && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain) && !settings.allowlist.includes(domain)) { settings.allowlist.push(domain); saveSettings(); renderRules(); input.value = ""; }
 });
 $("allowlist").addEventListener("click", (event) => { const domain = event.target.dataset.domain; if (domain) { settings.allowlist = settings.allowlist.filter((item) => item !== domain); saveSettings(); renderRules(); } });
+$("todo-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = $("todo-input");
+  const text = input.value.trim();
+  if (!text) return;
+  todos.unshift({ id: Date.now(), text, done: false });
+  input.value = "";
+  saveTodos();
+  renderTodos();
+});
+$("todo-list").addEventListener("change", (event) => {
+  const id = Number(event.target.dataset.todoId);
+  if (!id) return;
+  const todo = todos.find((item) => item.id === id);
+  if (todo) todo.done = event.target.checked;
+  saveTodos();
+  renderTodos();
+});
+$("todo-list").addEventListener("click", (event) => {
+  const id = Number(event.target.dataset.removeTodo);
+  if (!id) return;
+  todos = todos.filter((item) => item.id !== id);
+  saveTodos();
+  renderTodos();
+});
 $("clear-lock").addEventListener("click", () => {
   lockedDomain = "";
   renderLockStatus();
@@ -167,4 +205,4 @@ document.querySelectorAll(".nav-item").forEach((button) => button.addEventListen
 document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") { event.preventDefault(); address.focus(); address.select(); } });
 
 $("strict-toggle").setAttribute("aria-pressed", settings.strict);
-renderRules(); renderTimer(); renderLockStatus();
+renderRules(); renderTimer(); renderLockStatus(); renderTodos();
