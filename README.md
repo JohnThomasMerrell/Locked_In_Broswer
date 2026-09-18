@@ -39,6 +39,14 @@ Installers and portable archives are written to `dist/`. To run the desktop shel
 npm start
 ```
 
+To pull the latest app code, install any dependency updates, validate the code, and rebuild the installers in one step:
+
+```bash
+npm run update
+```
+
+Run it from the project folder. It uses a fast-forward-only Git pull, so it will stop safely instead of overwriting local changes.
+
 If npm reports that Electron's install script is not approved, run:
 
 ```bash
