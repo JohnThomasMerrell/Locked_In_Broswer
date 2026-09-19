@@ -8,7 +8,9 @@ function createWindow() {
     minWidth: 980,
     minHeight: 700,
     backgroundColor: "#f2ede3",
-    titleBarStyle: "hiddenInset",
+    // Keep the native title bar so close, minimize, and fullscreen controls
+    // remain visible on macOS, Windows, and Linux.
+    titleBarStyle: "default",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
