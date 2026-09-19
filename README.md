@@ -24,6 +24,8 @@ Then visit `http://localhost:8080`.
 
 The desktop app uses Electron's embedded browser view, so sites that refuse iframe embedding can still load in the downloadable app. The plain `python3 -m http.server` preview remains useful for checking the layout and search UI, but it cannot provide the full desktop browser surface.
 
+The desktop build keeps the operating system title bar visible, including the close, minimize, and fullscreen controls.
+
 ## Desktop executable
 
 The project includes an Electron desktop shell and build targets for macOS, Windows, and Linux. Install Node.js, then run:
